@@ -4,9 +4,6 @@
 # that begets the operands that make up logging.
 
 set -e
-if [ "${DEBUG:-}" = "true" ]; then
-	set -x
-fi
 
 source "$(dirname "${BASH_SOURCE[0]}" )/../lib/init.sh"
 source "$(dirname $0)/assertions"
@@ -32,6 +29,7 @@ cleanup(){
   
   os::cleanup::all "${return_code}"
   
+  set -e
   exit ${return_code}
 }
 trap cleanup exit
@@ -47,7 +45,8 @@ KUBECONFIG=${KUBECONFIG:-$HOME/.kube/config}
 oc create ns ${NAMESPACE} || :
 
 
-os::cmd::expect_success "oc create -f ${repo_dir}/vendor/github.com/openshift/elasticsearch-operator/manifests/${version}/elasticsearches.crd.yaml"
+eo_version=$(basename $(find  ${repo_dir}/vendor/github.com/openshift/elasticsearch-operator/manifests -type d | sort -r | head -n 1))
+os::cmd::expect_success "oc create -f ${repo_dir}/vendor/github.com/openshift/elasticsearch-operator/manifests/${eo_version}/elasticsearches.crd.yaml"
 
 
 os::log::info "Deploying operator from ${manifest}"

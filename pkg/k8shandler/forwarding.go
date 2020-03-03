@@ -26,7 +26,7 @@ const (
 )
 
 var (
-	outputTypes = sets.NewString(string(logforward.OutputTypeElasticsearch), string(logforward.OutputTypeForward))
+	outputTypes = sets.NewString(string(logforward.OutputTypeElasticsearch), string(logforward.OutputTypeForward), string(logforward.OutputTypeSyslog))
 	sourceTypes = sets.NewString(string(logforward.LogSourceTypeApp), string(logforward.LogSourceTypeInfra), string(logforward.LogSourceTypeAudit))
 )
 
@@ -47,7 +47,7 @@ func (clusterRequest *ClusterLoggingRequest) generateCollectorConfig() (config s
 	}
 
 	clusterRequest.ForwardingSpec = clusterRequest.normalizeLogForwarding(clusterRequest.cluster.Namespace, clusterRequest.cluster)
-	generator, err := forwarding.NewConfigGenerator(clusterRequest.cluster.Spec.Collection.Logs.Type, clusterRequest.includeLegacyForwardConfig())
+	generator, err := forwarding.NewConfigGenerator(clusterRequest.cluster.Spec.Collection.Logs.Type, clusterRequest.includeLegacyForwardConfig(), clusterRequest.includeLegacySyslogConfig())
 	return generator.Generate(&clusterRequest.ForwardingSpec)
 }
 

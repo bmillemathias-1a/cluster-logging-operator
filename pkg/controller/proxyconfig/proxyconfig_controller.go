@@ -7,10 +7,7 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/cluster-logging-operator/pkg/constants"
 	"github.com/openshift/cluster-logging-operator/pkg/k8shandler"
-	"github.com/openshift/cluster-logging-operator/pkg/utils"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -51,19 +48,16 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// Watch for changes to the additional trust bundle configmap in "openshift-logging".
+	// Watch for updates only
 	pred := predicate.Funcs{
-		UpdateFunc:  func(e event.UpdateEvent) bool { return handleConfigMap(e.MetaNew) },
-		DeleteFunc:  func(e event.DeleteEvent) bool { return handleConfigMap(e.Meta) },
-		CreateFunc:  func(e event.CreateEvent) bool { return handleConfigMap(e.Meta) },
-		GenericFunc: func(e event.GenericEvent) bool { return handleConfigMap(e.Meta) },
-	}
-	if err = c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &handler.EnqueueRequestForObject{}, pred); err != nil {
-		return err
+		UpdateFunc:  func(e event.UpdateEvent) bool { return true },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
+		CreateFunc:  func(e event.CreateEvent) bool { return true },
+		GenericFunc: func(e event.GenericEvent) bool { return false },
 	}
 
 	// Watch for changes to the proxy resource.
-	if err = c.Watch(&source.Kind{Type: &configv1.Proxy{}}, &handler.EnqueueRequestForObject{}); err != nil {
+	if err = c.Watch(&source.Kind{Type: &configv1.Proxy{}}, &handler.EnqueueRequestForObject{}, pred); err != nil {
 		return err
 	}
 
@@ -80,14 +74,11 @@ type ReconcileProxyConfig struct {
 	scheme *runtime.Scheme
 }
 
-// Reconcile reads that state of the cluster for a cluster-scoped named "cluster" as well as
-// trusted CA bundle configmap objects for the collector and the visualization resources.
-// When the user configured and/or system certs are updated, the change is propagated to the
-// configmap objects and this reconciler triggers to restart those pods.
+// Reconcile reads that state of the cluster for a cluster-scoped named "cluster"
 func (r *ReconcileProxyConfig) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	proxyNamespacedName := types.NamespacedName{Name: constants.ProxyName}
 	proxyConfig := &configv1.Proxy{}
-	if request.NamespacedName == proxyNamespacedName || utils.ContainsString(constants.ReconcileForGlobalProxyList, request.Name) {
+	if request.NamespacedName == proxyNamespacedName {
 		if err := r.client.Get(context.TODO(), proxyNamespacedName, proxyConfig); err != nil {
 			if apierrors.IsNotFound(err) {
 				// Request object not found, could have been deleted after reconcile request.
@@ -107,9 +98,4 @@ func (r *ReconcileProxyConfig) Reconcile(request reconcile.Request) (reconcile.R
 	}
 
 	return reconcile.Result{}, nil
-}
-
-// handleConfigMap returns true if meta namespace is "openshift-logging".
-func handleConfigMap(meta metav1.Object) bool {
-	return meta.GetNamespace() == constants.OpenshiftNS && utils.ContainsString(constants.ReconcileForGlobalProxyList, meta.GetName())
 }

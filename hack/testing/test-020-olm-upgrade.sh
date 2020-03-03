@@ -4,9 +4,6 @@
 # that begets the operands that make up logging.
 
 set -e
-if [ "${DEBUG:-}" = "true" ]; then
-	set -x
-fi
 
 repo_dir="$( cd "$(dirname "$0")/../.." ; pwd -P )"
 source "$repo_dir/hack/testing/utils"
@@ -48,7 +45,6 @@ cleanup(){
   oc  -n openshift-operator-lifecycle-manager logs --since=$runtime deployment/olm-operator > $ARTIFACT_DIR/olm-operator.logs 2>&1 ||:
   oc describe -n ${NAMESPACE} deployment/cluster-logging-operator > $ARTIFACT_DIR/cluster-logging-operator.describe.after_update  2>&1 ||:
 
-  
   for item in "crd/elasticsearches.logging.openshift.io" "crd/clusterloggings.logging.openshift.io" "ns/openshift-logging" "ns/openshift-operators-redhat"; do
     oc delete $item --wait=true --ignore-not-found --force --grace-period=0
   done
@@ -56,6 +52,9 @@ cleanup(){
     try_until_text "oc get ${item} --ignore-not-found" "" "$((1 * $minute))"
   done
 
+  cleanup_olm_catalog_unsupported_resources
+
+  set -e
   exit ${return_code}
 }
 trap cleanup exit

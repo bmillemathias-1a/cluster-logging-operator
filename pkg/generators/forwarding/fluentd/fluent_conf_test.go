@@ -15,7 +15,7 @@ var _ = Describe("Generating fluentd config", func() {
 	)
 	BeforeEach(func() {
 		var err error
-		generator, err = NewConfigGenerator(true)
+		generator, err = NewConfigGenerator(true, true)
 		Expect(err).To(BeNil())
 		Expect(generator).ToNot(BeNil())
 		forwarding = &logging.ForwardingSpec{
@@ -73,7 +73,7 @@ var _ = Describe("Generating fluentd config", func() {
 		}
 	})
 
-	It("should exclude source to pipeline labels when there are no pipelines for a given sourceType (e.g. only logs.app)", func() {
+	It("should exclude source to pipeline labels when there are no pipelines for a given sourceType (e.g. only logs-app)", func() {
 		forwarding = &logging.ForwardingSpec{
 			Outputs: []logging.OutputSpec{
 				{
@@ -293,6 +293,7 @@ var _ = Describe("Generating fluentd config", func() {
 				</filter>
 				<filter **>
 					@type viaq_data_model
+					elasticsearch_index_prefix_field 'viaq_index_name'
 					default_keep_fields CEE,time,@timestamp,aushape,ci_job,collectd,docker,fedora-ci,file,foreman,geoip,hostname,ipaddr4,ipaddr6,kubernetes,level,message,namespace_name,namespace_uuid,offset,openstack,ovirt,pid,pipeline_metadata,rsyslog,service,systemd,tags,testcase,tlog,viaq_msg_id
 					extra_keep_fields "#{ENV['CDM_EXTRA_KEEP_FIELDS'] || ''}"
 					keep_empty_fields "#{ENV['CDM_KEEP_EMPTY_FIELDS'] || 'message'}"
@@ -336,17 +337,20 @@ var _ = Describe("Generating fluentd config", func() {
 					<elasticsearch_index_name>
 						enabled "#{ENV['ENABLE_ES_INDEX_NAME'] || 'true'}"
 						tag "journal.system** system.var.log** **_default_** **_kube-*_** **_openshift-*_** **_openshift_**"
-						name_type operations_full
-					</elasticsearch_index_name>
-					<elasticsearch_index_name>
+						name_type static
+						static_index_name infra-write
+						</elasticsearch_index_name>
+						<elasticsearch_index_name>
 						enabled "#{ENV['ENABLE_ES_INDEX_NAME'] || 'true'}"
 						tag "linux-audit.log** k8s-audit.log** openshift-audit.log**"
-						name_type audit_full
-					</elasticsearch_index_name>
-					<elasticsearch_index_name>
+						name_type static
+						static_index_name audit-infra-write
+						</elasticsearch_index_name>
+						<elasticsearch_index_name>
 						enabled "#{ENV['ENABLE_ES_INDEX_NAME'] || 'true'}"
 						tag "**"
-						name_type project_full
+						name_type static
+						static_index_name app-write
 					</elasticsearch_index_name>
 				</filter>
 				<filter **>
@@ -367,7 +371,7 @@ var _ = Describe("Generating fluentd config", func() {
 
 			</label>
 			
-			# Relabel specific sources (e.g. logs.apps) to multiple pipelines
+			# Relabel specific sources (e.g. logs-apps) to multiple pipelines
 			<label @_LOGS_APP>
 				<match **>
 					@type copy
@@ -378,6 +382,10 @@ var _ = Describe("Generating fluentd config", func() {
 					<store>
 						@type relabel
 						@label @_LEGACY_SECUREFORWARD
+					</store>
+					<store>
+						@type relabel
+						@label @_LEGACY_SYSLOG
 					</store>
 				</match>
 			</label>
@@ -425,6 +433,13 @@ var _ = Describe("Generating fluentd config", func() {
 				@type copy
 				#include legacy secure-forward.conf
 				@include /etc/fluent/configs.d/secure-forward/secure-forward.conf
+			</match>
+		</label>
+		<label @_LEGACY_SYSLOG>
+			<match **>
+				@type copy
+				#include legacy Syslog
+				@include /etc/fluent/configs.d/syslog/syslog.conf
 			</match>
 		</label>
 	`)
@@ -699,6 +714,7 @@ var _ = Describe("Generating fluentd config", func() {
 				</filter>
 				<filter **>
 					@type viaq_data_model
+					elasticsearch_index_prefix_field 'viaq_index_name'
 					default_keep_fields CEE,time,@timestamp,aushape,ci_job,collectd,docker,fedora-ci,file,foreman,geoip,hostname,ipaddr4,ipaddr6,kubernetes,level,message,namespace_name,namespace_uuid,offset,openstack,ovirt,pid,pipeline_metadata,rsyslog,service,systemd,tags,testcase,tlog,viaq_msg_id
 					extra_keep_fields "#{ENV['CDM_EXTRA_KEEP_FIELDS'] || ''}"
 					keep_empty_fields "#{ENV['CDM_KEEP_EMPTY_FIELDS'] || 'message'}"
@@ -742,17 +758,20 @@ var _ = Describe("Generating fluentd config", func() {
 					<elasticsearch_index_name>
 						enabled "#{ENV['ENABLE_ES_INDEX_NAME'] || 'true'}"
 						tag "journal.system** system.var.log** **_default_** **_kube-*_** **_openshift-*_** **_openshift_**"
-						name_type operations_full
+						name_type static
+						static_index_name infra-write
 					</elasticsearch_index_name>
 					<elasticsearch_index_name>
 						enabled "#{ENV['ENABLE_ES_INDEX_NAME'] || 'true'}"
 						tag "linux-audit.log** k8s-audit.log** openshift-audit.log**"
-						name_type audit_full
+						name_type static
+						static_index_name audit-infra-write
 					</elasticsearch_index_name>
 					<elasticsearch_index_name>
 						enabled "#{ENV['ENABLE_ES_INDEX_NAME'] || 'true'}"
 						tag "**"
-						name_type project_full
+						name_type static
+						static_index_name app-write
 					</elasticsearch_index_name>
 				</filter>
 				<filter **>
@@ -781,7 +800,7 @@ var _ = Describe("Generating fluentd config", func() {
 
 			</label>
 			
-			# Relabel specific sources (e.g. logs.apps) to multiple pipelines
+			# Relabel specific sources (e.g. logs-apps) to multiple pipelines
 			<label @_LOGS_APP>
 				<match **>
 					@type copy
@@ -792,6 +811,10 @@ var _ = Describe("Generating fluentd config", func() {
 					<store>
 						@type relabel
 						@label @_LEGACY_SECUREFORWARD
+					</store>
+					<store>
+						@type relabel
+						@label @_LEGACY_SYSLOG
 					</store>
 				</match>
 			</label>
@@ -806,6 +829,10 @@ var _ = Describe("Generating fluentd config", func() {
 						@type relabel
 						@label @_LEGACY_SECUREFORWARD
 					</store>
+					<store>
+						@type relabel
+						@label @_LEGACY_SYSLOG
+					</store>
 				</match>
 			</label>
 			<label @_LOGS_INFRA>
@@ -818,6 +845,10 @@ var _ = Describe("Generating fluentd config", func() {
 					<store>
 						@type relabel
 						@label @_LEGACY_SECUREFORWARD
+					</store>
+					<store>
+						@type relabel
+						@label @_LEGACY_SYSLOG
 					</store>
 				</match>
 			</label>
@@ -875,7 +906,7 @@ var _ = Describe("Generating fluentd config", func() {
 						client_key '/var/run/ocp-collector/secrets/my-infra-secret/tls.key'
 						client_cert '/var/run/ocp-collector/secrets/my-infra-secret/tls.crt'
 						ca_file '/var/run/ocp-collector/secrets/my-infra-secret/ca-bundle.crt'
-						type_name com.redhat.viaq.common
+						type_name _doc
 						write_operation create
 						reload_connections "#{ENV['ES_RELOAD_CONNECTIONS'] || 'true'}"
 						# https://github.com/uken/fluent-plugin-elasticsearch#reload-after
@@ -917,7 +948,7 @@ var _ = Describe("Generating fluentd config", func() {
 						client_key '/var/run/ocp-collector/secrets/my-infra-secret/tls.key'
 						client_cert '/var/run/ocp-collector/secrets/my-infra-secret/tls.crt'
 						ca_file '/var/run/ocp-collector/secrets/my-infra-secret/ca-bundle.crt'
-						type_name com.redhat.viaq.common
+						type_name _doc
 						retry_tag retry_infra_es
 						write_operation create
 						reload_connections "#{ENV['ES_RELOAD_CONNECTIONS'] || 'true'}"
@@ -962,7 +993,7 @@ var _ = Describe("Generating fluentd config", func() {
 						client_key '/var/run/ocp-collector/secrets/my-es-secret/tls.key'
 						client_cert '/var/run/ocp-collector/secrets/my-es-secret/tls.crt'
 						ca_file '/var/run/ocp-collector/secrets/my-es-secret/ca-bundle.crt'
-						type_name com.redhat.viaq.common
+						type_name _doc
 						write_operation create
 						reload_connections "#{ENV['ES_RELOAD_CONNECTIONS'] || 'true'}"
 						# https://github.com/uken/fluent-plugin-elasticsearch#reload-after
@@ -1004,7 +1035,7 @@ var _ = Describe("Generating fluentd config", func() {
 						client_key '/var/run/ocp-collector/secrets/my-es-secret/tls.key'
 						client_cert '/var/run/ocp-collector/secrets/my-es-secret/tls.crt'
 						ca_file '/var/run/ocp-collector/secrets/my-es-secret/ca-bundle.crt'
-						type_name com.redhat.viaq.common
+						type_name _doc
 						retry_tag retry_apps_es_1
 						write_operation create
 						reload_connections "#{ENV['ES_RELOAD_CONNECTIONS'] || 'true'}"
@@ -1049,7 +1080,7 @@ var _ = Describe("Generating fluentd config", func() {
 						client_key '/var/run/ocp-collector/secrets/my-other-secret/tls.key'
 						client_cert '/var/run/ocp-collector/secrets/my-other-secret/tls.crt'
 						ca_file '/var/run/ocp-collector/secrets/my-other-secret/ca-bundle.crt'
-						type_name com.redhat.viaq.common
+						type_name _doc
 						write_operation create
 						reload_connections "#{ENV['ES_RELOAD_CONNECTIONS'] || 'true'}"
 						# https://github.com/uken/fluent-plugin-elasticsearch#reload-after
@@ -1091,7 +1122,7 @@ var _ = Describe("Generating fluentd config", func() {
 						client_key '/var/run/ocp-collector/secrets/my-other-secret/tls.key'
 						client_cert '/var/run/ocp-collector/secrets/my-other-secret/tls.crt'
 						ca_file '/var/run/ocp-collector/secrets/my-other-secret/ca-bundle.crt'
-						type_name com.redhat.viaq.common
+						type_name _doc
 						retry_tag retry_apps_es_2
 						write_operation create
 						reload_connections "#{ENV['ES_RELOAD_CONNECTIONS'] || 'true'}"
@@ -1136,7 +1167,7 @@ var _ = Describe("Generating fluentd config", func() {
 						client_key '/var/run/ocp-collector/secrets/my-audit-secret/tls.key'
 						client_cert '/var/run/ocp-collector/secrets/my-audit-secret/tls.crt'
 						ca_file '/var/run/ocp-collector/secrets/my-audit-secret/ca-bundle.crt'
-						type_name com.redhat.viaq.common
+						type_name _doc
 						write_operation create
 						reload_connections "#{ENV['ES_RELOAD_CONNECTIONS'] || 'true'}"
 						# https://github.com/uken/fluent-plugin-elasticsearch#reload-after
@@ -1178,7 +1209,7 @@ var _ = Describe("Generating fluentd config", func() {
 						client_key '/var/run/ocp-collector/secrets/my-audit-secret/tls.key'
 						client_cert '/var/run/ocp-collector/secrets/my-audit-secret/tls.crt'
 						ca_file '/var/run/ocp-collector/secrets/my-audit-secret/ca-bundle.crt'
-						type_name com.redhat.viaq.common
+						type_name _doc
 						retry_tag retry_audit_es
 						write_operation create
 						reload_connections "#{ENV['ES_RELOAD_CONNECTIONS'] || 'true'}"
@@ -1209,6 +1240,13 @@ var _ = Describe("Generating fluentd config", func() {
 				  @type copy
 					#include legacy secure-forward.conf
 					@include /etc/fluent/configs.d/secure-forward/secure-forward.conf
+				</match>
+			</label>
+			<label @_LEGACY_SYSLOG>
+				<match **>
+					@type copy
+					#include legacy Syslog
+					@include /etc/fluent/configs.d/syslog/syslog.conf
 				</match>
 			</label>
 			`)

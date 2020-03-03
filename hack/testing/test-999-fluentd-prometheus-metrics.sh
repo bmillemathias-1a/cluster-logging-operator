@@ -1,8 +1,6 @@
- #!/bin/bash -x
+#!/bin/bash
+
 set -e
-if [ -n "${DEBUG:-}" ]; then
-    set -x
-fi
 
 repo_dir=${repo_dir:-$(dirname $0)/../..}
 source "$repo_dir/hack/testing/utils"
@@ -27,6 +25,9 @@ cleanup() {
 		try_until_failure "oc get ${item}" "$((1 * $minute))"
 		done
 	fi
+
+    cleanup_olm_catalog_unsupported_resources
+    set -e
     exit $return_code
 }
 trap "cleanup" EXIT
